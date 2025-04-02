@@ -1,26 +1,211 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --tw-prose-body: theme('colors.gray.700');
+    --tw-prose-headings: theme('colors.gray.900');
+    --tw-prose-links: theme('colors.editor.accent');
+    --tw-prose-links-hover: theme('colors.editor.function');
+    --tw-prose-code: theme('colors.editor.string');
+  }
+
+  body {
+    @apply bg-editor-bg text-editor-text;
+    background-image: 
+      radial-gradient(circle at 15% 50%, theme('colors.editor.glow') 0%, transparent 25%),
+      radial-gradient(circle at 85% 30%, theme('colors.editor.glow') 0%, transparent 25%);
+    background-attachment: fixed;
+  }
+
+  /* Add custom scrollbar for code editor feel */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-editor-bg;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-editor-border hover:bg-editor-accent transition-colors duration-200 rounded-full;
+  }
+
+  /* Animated placeholder text */
+  @keyframes placeholderShimmer {
+    0% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.5;
+    }
+  }
+
+  input::placeholder, textarea::placeholder, select::placeholder {
+    animation: placeholderShimmer 2s infinite;
+  }
+
+  /* Mobile-specific optimizations */
+  @media (max-width: 640px) {
+    h1, h2, h3, p, button, .btn {
+      @apply text-center;
+    }
+
+    .input, .select {
+      @apply mx-auto;
+    }
+
+    label {
+      @apply block text-center;
+    }
+    
+    /* Exception for DataGenerator labels */
+    .card-body label.text-sm.font-medium {
+      @apply text-left;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .btn {
+    @apply relative px-4 py-2 rounded-md font-medium focus:outline-none transition-all duration-200 overflow-hidden;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  }
+
+  .btn:before {
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    content: '';
+    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  }
+
+  .btn:hover:before {
+    @apply opacity-100;
+  }
+
+  .btn-primary {
+    @apply bg-editor-accent text-editor-bg shadow-glow hover:shadow-glow-lg;
+    background-image: linear-gradient(to right, theme('colors.editor.accent'), rgba(0, 204, 255, 0.8));
+  }
+
+  .btn-secondary {
+    @apply bg-editor-highlight text-editor-text border border-editor-border hover:border-editor-accent hover:shadow-glow-sm transition-all duration-300;
+  }
+
+  .input {
+    @apply block w-full rounded-md border-editor-border bg-editor-highlight text-editor-text shadow-sm my-3 mx-0 px-4 py-3 outline-none focus:border-editor-accent focus:ring-0 focus:shadow-glow-sm transition-all duration-300;
+    backdrop-filter: blur(8px);
+  }
+
+  .select {
+    @apply block w-full rounded-md border-editor-border bg-editor-highlight text-editor-text shadow-sm my-3 mx-0 px-4 py-3 outline-none focus:border-editor-accent focus:ring-0 focus:shadow-glow-sm appearance-none pr-8 transition-all duration-300;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%238A92B2' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    backdrop-filter: blur(8px);
+  }
+
+  .checkbox {
+    @apply h-4 w-4 rounded border-editor-border bg-editor-highlight text-editor-accent focus:ring-1 focus:ring-editor-accent focus:ring-offset-0 transition-all duration-300;
+  }
+
+  /* New code editor-inspired components */
+  .card {
+    @apply bg-editor-lightBg border border-editor-border rounded-md shadow-md relative overflow-hidden;
+    backdrop-filter: blur(8px);
+  }
+
+  .card-header {
+    @apply border-b border-editor-border p-4 font-medium;
+  }
+
+  .card-body {
+    @apply p-6;
+  }
+
+  .tag {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .tag-blue {
+    @apply bg-editor-accent/20 text-editor-accent;
+    text-shadow: 0 0 8px theme('colors.editor.accent');
+  }
+
+  .tag-green {
+    @apply bg-editor-comment/20 text-editor-comment;
+    text-shadow: 0 0 8px theme('colors.editor.comment');
+  }
+
+  .tag-purple {
+    @apply bg-editor-keyword/20 text-editor-keyword;
+    text-shadow: 0 0 8px theme('colors.editor.keyword');
+  }
+
+  .tag-yellow {
+    @apply bg-editor-function/20 text-editor-function;
+    text-shadow: 0 0 8px theme('colors.editor.function');
+  }
+
+  /* Futuristic elements */
+  .futuristic-divider {
+    @apply relative h-px w-full my-6 bg-editor-border;
+  }
+
+  /* Mobile-centered card styling */
+  @media (max-width: 640px) {
+    .card {
+      @apply mx-auto max-w-md w-full;
+    }
+    
+    /* All card headings should be centered */
+    .card-body h2,
+    .card-body > div > h2 {
+      @apply text-center justify-center items-center !important;
+    }
+    
+    /* Direct targeting of the DataGenerator component */
+    .data-generator,
+    .data-generator *:not(.center-allowed) {
+      text-align: left !important;
+      justify-content: flex-start !important;
+      align-items: flex-start !important;
+    }
+    
+    /* Exception for elements that should remain centered */
+    .data-generator .center-allowed,
+    .data-generator h2,
+    .card-body h2 {
+      text-align: center !important;
+      justify-content: center !important;
+      align-items: center !important;
+    }
+    
+    /* Special case for labels and headings within DataGenerator */
+    .data-generator label,
+    .data-generator div:not(h2 + div) {
+      text-align: left !important;
+    }
+    
+    .card-body {
+      @apply text-center;
+    }
+    
+    /* Elements with text-left should preserve their alignment */
+    .text-left {
+      text-align: left !important;
+    }
+    
+    /* Exception for text fields that should align left for readability */
+    .card-body input[type="text"],
+    .card-body textarea,
+    .card-body .prose {
+      @apply text-left;
+    }
+  }
 }
