@@ -46,7 +46,7 @@ class EmailService {
       }
       
       throw new Error(response.data.error || 'Failed to create email account');
-    } catch (_) {
+    } catch {
       throw new Error('Failed to create email account');
     }
   }
@@ -127,7 +127,7 @@ class EmailService {
                   // Continue to retry with the new token
                   continue;
                 }
-              } catch (_) {
+              } catch {
                 // Continue with the retry loop using the existing token
                 continue;
               }
@@ -153,7 +153,7 @@ class EmailService {
         messages: [], 
         provider: 'mail.tm' 
       };
-    } catch (_) {
+    } catch {
       // On error, return empty inbox
       return { email, messages: [], provider: 'mail.tm' };
     }
@@ -182,7 +182,7 @@ class EmailService {
       }
       
       throw new Error(response.data.error || 'Failed to read message');
-    } catch (_) {
+    } catch {
       throw new Error('Failed to read message');
     }
   }
@@ -208,7 +208,7 @@ class EmailService {
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to delete message');
       }
-    } catch (_) {
+    } catch {
       throw new Error('Failed to delete message');
     }
   }
@@ -240,7 +240,7 @@ class EmailService {
         token: account.token,
         provider: 'mail.tm'
       };
-    } catch (_) {
+    } catch {
       return null;
     }
   }

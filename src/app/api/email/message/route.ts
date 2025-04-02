@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
             }
           }
         );
-      } catch (_) {
+      } catch {
         // Non-critical failure - log but continue
       }
     }
@@ -162,7 +162,7 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: 'Message deleted successfully'
     });
-  } catch (_) {
+  } catch {
     return NextResponse.json({
       success: true, 
       message: 'Message removed from inbox'

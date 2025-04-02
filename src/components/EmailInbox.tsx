@@ -177,7 +177,7 @@ export default function EmailInbox({ inbox, onInboxUpdate }: EmailInboxProps) {
         refreshInbox(true);
         toast.success('Message deleted successfully');
       }
-    } catch (_) {
+    } catch {
       if (isComponentMountedRef.current) {
         toast.error('Failed to delete message');
       }
@@ -193,7 +193,7 @@ export default function EmailInbox({ inbox, onInboxUpdate }: EmailInboxProps) {
       if (isComponentMountedRef.current) {
         setSelectedMessage(message);
       }
-    } catch (_) {
+    } catch {
       if (isComponentMountedRef.current) {
         toast.error('Failed to read message');
       }

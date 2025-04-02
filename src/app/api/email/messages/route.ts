@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       success: true,
       messages
     });
-  } catch (_) {
+  } catch {
     return NextResponse.json({
       success: true,
       messages: []

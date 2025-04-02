@@ -118,7 +118,7 @@ function formatDate(dateString: string, language?: string): string {
       const year = date.getFullYear();
       return `${day}/${month}/${year}`;
     }
-  } catch (_) {
+  } catch {
     return dateString;
   }
 }
