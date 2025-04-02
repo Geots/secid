@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { UserProfile, DataGenerationOptions, ExportFormat, EmailInbox } from '@/types';
 import { dataService } from '@/services/dataService';
-import emailService from '@/services/emailService';
 import ProfileCard from '@/components/ProfileCard';
 import EmailInboxComponent from '@/components/EmailInbox';
 import DataGenerator from '@/components/DataGenerator';

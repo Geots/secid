@@ -101,7 +101,7 @@ const generateAge = (ageRange?: 'young' | 'adult' | 'senior'): number => {
 };
 
 // Helper function to generate job information
-const generateJobInfo = (country?: string): UserProfile['job'] => {
+const generateJobInfo = (): UserProfile['job'] => {
   const startDate = faker.date.past({ years: 5 });
   return {
     title: faker.person.jobTitle(),
@@ -150,7 +150,7 @@ const generateSocialMedia = (firstName: string, lastName: string): UserProfile['
 };
 
 // Function to generate a realistic avatar URL
-const generateAvatar = (gender: 'male' | 'female' | 'other', style: 'realistic' | 'cartoon' | 'abstract' = 'realistic', age: number): string => {
+const generateAvatar = (gender: 'male' | 'female' | 'other', style: 'realistic' | 'cartoon' | 'abstract' = 'realistic'): string => {
   if (style === 'realistic') {
     // Use randomuser.me API for realistic photos which provides reliable URLs
     const randomId = faker.number.int({ min: 1, max: 99 });
@@ -265,12 +265,12 @@ export const dataService = {
 
     // Add avatar if requested
     if (options.includeAvatar) {
-      profile.avatar = generateAvatar(gender as 'male' | 'female' | 'other', options.avatarStyle || 'realistic', age);
+      profile.avatar = generateAvatar(gender as 'male' | 'female' | 'other', options.avatarStyle || 'realistic');
     }
 
     // Add job information if requested
     if (options.includeJobInfo) {
-      profile.job = generateJobInfo(country);
+      profile.job = generateJobInfo();
     }
 
     // Add education information if requested

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { EmailInbox as EmailInboxType, EmailMessage } from '@/types';
 import emailService from '@/services/emailService';
-import { FaEnvelope, FaTrash, FaSync, FaTimes, FaCopy } from 'react-icons/fa';
+import { FaTrash, FaSync, FaTimes, FaCopy } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 
 interface EmailInboxProps {
@@ -108,7 +108,13 @@ export default function EmailInbox({ inbox, onInboxUpdate }: EmailInboxProps) {
       // Always update the last refresh timestamp
       setLastRefresh(Date.now());
     } catch (error) {
-      setIsRefreshing(false);
+      // Log error but don't show to user unless needed
+      console.error('Error refreshing inbox:', error);
+    } finally {
+      // Always make sure to reset the refreshing state
+      if (isComponentMountedRef.current) {
+        setIsRefreshing(false);
+      }
     }
   }, [inbox.email, inbox.messages, onInboxUpdate, isRefreshing]);
 
@@ -145,10 +151,11 @@ export default function EmailInbox({ inbox, onInboxUpdate }: EmailInboxProps) {
     
     // Force refresh the inbox
     refreshInbox(true)
-      .catch(() => {
+      .finally(() => {
         // Only update state if component is still mounted
         if (isComponentMountedRef.current) {
-          // Reset manual refresh active state
+          // Reset refresh states
+          setIsRefreshing(false);
           setManualRefreshActive(false);
           
           // Set a cooldown period to prevent spam clicking
@@ -170,7 +177,7 @@ export default function EmailInbox({ inbox, onInboxUpdate }: EmailInboxProps) {
         refreshInbox(true);
         toast.success('Message deleted successfully');
       }
-    } catch (error) {
+    } catch (_) {
       if (isComponentMountedRef.current) {
         toast.error('Failed to delete message');
       }
@@ -186,7 +193,7 @@ export default function EmailInbox({ inbox, onInboxUpdate }: EmailInboxProps) {
       if (isComponentMountedRef.current) {
         setSelectedMessage(message);
       }
-    } catch (error) {
+    } catch (_) {
       if (isComponentMountedRef.current) {
         toast.error('Failed to read message');
       }

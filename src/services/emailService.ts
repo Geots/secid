@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import { EmailAccount, EmailInbox, EmailMessage } from '@/types';
 
 // Constants for localStorage keys
@@ -46,7 +46,7 @@ class EmailService {
       }
       
       throw new Error(response.data.error || 'Failed to create email account');
-    } catch (error) {
+    } catch (_) {
       throw new Error('Failed to create email account');
     }
   }
@@ -74,7 +74,7 @@ class EmailService {
       // Call our backend API to get messages with retry logic
       let retries = 0;
       const maxRetries = 3;
-      let lastError = null;
+      let lastError: Error | null = null;
       
       while (retries < maxRetries) {
         try {
@@ -89,11 +89,15 @@ class EmailService {
           }
           
           throw new Error(response.data.error || 'Failed to get inbox');
-        } catch (error: any) {
-          lastError = error;
+        } catch (error) {
+          if (error instanceof Error) {
+            lastError = error;
+          } else {
+            lastError = new Error('Unknown error occurred');
+          }
           
           // If we hit a rate limit, wait and retry with exponential backoff
-          if (error.response && error.response.status === 429) {
+          if (error instanceof AxiosError && error.response && error.response.status === 429) {
             retries++;
             
             // Calculate backoff time with jitter (random variation)
@@ -123,9 +127,9 @@ class EmailService {
                   // Continue to retry with the new token
                   continue;
                 }
-              } catch (refreshError) {
-                // console.error('Failed to refresh token:', refreshError);
-                throw refreshError;
+              } catch (_) {
+                // Continue with the retry loop using the existing token
+                continue;
               }
             }
             
@@ -140,7 +144,6 @@ class EmailService {
       
       // If we've exhausted retries or encountered a non-rate-limit error
       if (lastError) {
-        // console.error('Failed to get inbox after retries:', lastError);
         throw lastError;
       }
       
@@ -150,7 +153,7 @@ class EmailService {
         messages: [], 
         provider: 'mail.tm' 
       };
-    } catch (error) {
+    } catch (_) {
       // On error, return empty inbox
       return { email, messages: [], provider: 'mail.tm' };
     }
@@ -179,7 +182,7 @@ class EmailService {
       }
       
       throw new Error(response.data.error || 'Failed to read message');
-    } catch (error) {
+    } catch (_) {
       throw new Error('Failed to read message');
     }
   }
@@ -205,7 +208,7 @@ class EmailService {
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to delete message');
       }
-    } catch (error) {
+    } catch (_) {
       throw new Error('Failed to delete message');
     }
   }
@@ -237,10 +240,11 @@ class EmailService {
         token: account.token,
         provider: 'mail.tm'
       };
-    } catch (error) {
+    } catch (_) {
       return null;
     }
   }
 }
 
-export default new EmailService(); 
+const emailService = new EmailService();
+export default emailService; 

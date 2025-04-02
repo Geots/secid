@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { AxiosError } from 'axios';
 
 // Simple rate limiting - one request per 250ms (4 per second)
 let lastRequestTime = 0;
@@ -19,6 +20,23 @@ async function ensureRateLimit() {
   }
   
   lastRequestTime = Date.now();
+}
+
+// Define types for messages from the API
+interface MailTmSender {
+  address: string;
+  name?: string;
+}
+
+interface MailTmMessage {
+  id: string;
+  from: MailTmSender;
+  subject?: string;
+  text?: string;
+  html?: string;
+  intro?: string;
+  createdAt: string;
+  seen: boolean;
 }
 
 export async function GET(request: NextRequest) {
@@ -51,8 +69,8 @@ export async function GET(request: NextRequest) {
           }
         });
         break; // Success, exit the retry loop
-      } catch (error: any) {
-        if (error.response && error.response.status === 429) {
+      } catch (error: unknown) {
+        if (error instanceof AxiosError && error.response && error.response.status === 429) {
           retries++;
           // Exponential backoff with jitter
           const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
@@ -79,7 +97,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Determine which format we're dealing with and process accordingly
-    let messageData: any[] = [];
+    let messageData: MailTmMessage[] = [];
     
     if (response.data['hydra:member']) {
       // Old format with hydra:member
@@ -96,7 +114,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Transform Mail.tm format to our app format
-    const messages = messageData.map((msg: any) => ({
+    const messages = messageData.map((msg: MailTmMessage) => ({
       id: msg.id,
       from: msg.from.address,
       to: email,
@@ -111,10 +129,7 @@ export async function GET(request: NextRequest) {
       success: true,
       messages
     });
-  } catch (error: any) {
-    // console.error('Error fetching messages:', error.message);
-    
-    // Create a sanitized error response
+  } catch (_) {
     return NextResponse.json({
       success: true,
       messages: []

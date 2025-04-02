@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { AxiosError } from 'axios';
 
 // Simple rate limiting - one request per 250ms (4 per second, well under the 8/sec limit)
 let lastRequestTime = 0;
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     let body;
     try {
       body = JSON.parse(bodyText);
-    } catch (e) {
+    } catch (_) {
       return NextResponse.json(
         { success: false, error: 'Invalid JSON in request body' },
         { status: 400 }
@@ -81,8 +82,8 @@ export async function POST(request: NextRequest) {
           }
         });
         break; // Success, exit the retry loop
-      } catch (error: any) {
-        if (error.response && error.response.status === 429) {
+      } catch (error: unknown) {
+        if (error instanceof AxiosError && error.response && error.response.status === 429) {
           retries++;
           // Exponential backoff with jitter
           const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
@@ -108,21 +109,19 @@ export async function POST(request: NextRequest) {
       success: true,
       token: response.data.token
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Create a sanitized error response
-    let errorMessage = 'Failed to get email token';
-    const errorDetails = {
-      message: error.message || 'Unknown error',
-      status: error.status || 500,
-    };
+    const errorMessage = 'Failed to get email token';
+    const status = error instanceof AxiosError && error.response?.status ? error.response.status : 500;
+    const message = error instanceof Error ? error.message : 'Unknown error';
     
     return NextResponse.json(
       { 
         success: false, 
         error: errorMessage,
-        details: errorDetails
+        details: { message }
       },
-      { status: errorDetails.status }
+      { status }
     );
   }
 } 

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import axios from 'axios';
+import { AxiosError } from 'axios';
 
 // Simple rate limiting - one request per 250ms (4 per second)
 let lastRequestTime = 0;
@@ -21,7 +22,12 @@ async function ensureRateLimit() {
   lastRequestTime = Date.now();
 }
 
-export async function GET(request: NextRequest) {
+interface Domain {
+  domain: string;
+  isActive: boolean;
+}
+
+export async function GET() {
   try {
     // Apply rate limiting
     await ensureRateLimit();
@@ -37,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get the first active domain
-    const availableDomains = domainsResponse.data['hydra:member'].filter((domain: any) => domain.isActive);
+    const availableDomains = domainsResponse.data['hydra:member'].filter((domain: Domain) => domain.isActive);
     
     if (!availableDomains.length) {
       return NextResponse.json(
@@ -112,13 +118,17 @@ export async function GET(request: NextRequest) {
         id: accountId
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Return error response
+    const errorMessage = error instanceof AxiosError 
+      ? error.response?.data?.message || error.message
+      : error instanceof Error ? error.message : 'Unknown error';
+      
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to generate email address',
-        details: error.response?.data?.message || error.message 
+        details: errorMessage 
       },
       { status: 500 }
     );

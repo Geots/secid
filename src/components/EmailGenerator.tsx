@@ -24,7 +24,7 @@ export default function EmailGenerator({ onEmailGenerated }: EmailGeneratorProps
       onEmailGenerated(inbox);
       
       toast.success('Email address generated!');
-    } catch (error) {
+    } catch (_) {
       toast.error('Failed to generate email address');
     } finally {
       setIsGenerating(false);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { AxiosError } from 'axios';
 
 // Simple rate limiting - one request per 250ms (4 per second, well under the 8/sec limit)
 let lastRequestTime = 0;
@@ -19,30 +20,6 @@ async function ensureRateLimit() {
   }
   
   lastRequestTime = Date.now();
-}
-
-// Helper function to create a welcome message
-function getWelcomeMessage(email: string) {
-  return {
-    id: 'welcome-1',
-    from: 'secid@example.com',
-    to: email,
-    subject: 'Your Email Inbox is Ready',
-    text: 'This is a confirmation email that your temporary inbox is working correctly. You can now receive emails at this address from any service like Gmail.',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-        <h2 style="color: #4f46e5;">Your Temporary Inbox is Ready</h2>
-        <p>This is a confirmation email that your temporary inbox is working correctly.</p>
-        <p><strong>Email address:</strong> ${email}</p>
-        <p>You can now receive emails at this address from any email service like Gmail.</p>
-        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin-top: 20px;">
-          <p style="margin: 0; font-size: 14px;">This is a temporary email service powered by Mail.tm.</p>
-        </div>
-      </div>
-    `,
-    date: new Date().toISOString(),
-    read: true
-  };
 }
 
 export async function GET(request: NextRequest) {
@@ -75,8 +52,8 @@ export async function GET(request: NextRequest) {
           }
         });
         break; // Success, exit the retry loop
-      } catch (error: any) {
-        if (error.response && error.response.status === 429) {
+      } catch (error: unknown) {
+        if (error instanceof AxiosError && error.response && error.response.status === 429) {
           retries++;
           // Exponential backoff with jitter
           const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
@@ -118,7 +95,7 @@ export async function GET(request: NextRequest) {
             }
           }
         );
-      } catch (markReadError) {
+      } catch (_) {
         // Non-critical failure - log but continue
       }
     }
@@ -127,12 +104,9 @@ export async function GET(request: NextRequest) {
       success: true,
       message
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Create a sanitized error response
-    const errorDetails = {
-      message: error.message || 'Unknown error',
-      status: error.status || 500,
-    };
+    const status = error instanceof AxiosError && error.response?.status ? error.response.status : 500;
     
     return NextResponse.json(
       { 
@@ -140,7 +114,7 @@ export async function GET(request: NextRequest) {
         error: 'Failed to read message',
         message: 'There was a problem retrieving this message'
       },
-      { status: errorDetails.status }
+      { status }
     );
   }
 }
@@ -149,8 +123,7 @@ export async function DELETE(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const messageId = searchParams.get('id');
   const token = searchParams.get('token');
-  const email = searchParams.get('email');
-
+  
   if (!messageId || !token) {
     return NextResponse.json(
       { success: false, error: 'Message ID and token are required' },
@@ -173,8 +146,8 @@ export async function DELETE(request: NextRequest) {
           }
         });
         break; // Success, exit the retry loop
-      } catch (error: any) {
-        if (error.response && error.response.status === 429) {
+      } catch (error: unknown) {
+        if (error instanceof AxiosError && error.response && error.response.status === 429) {
           retries++;
           // Exponential backoff with jitter
           const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
@@ -189,13 +162,7 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: 'Message deleted successfully'
     });
-  } catch (error: any) {
-    // Create a sanitized error response
-    const errorDetails = {
-      message: error.message || 'Unknown error',
-      status: error.status || 500,
-    };
-    
+  } catch (_) {
     return NextResponse.json({
       success: true, 
       message: 'Message removed from inbox'

@@ -16,6 +16,7 @@ import {
   FaCopy
 } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
+import Image from 'next/image';
 
 interface ProfileCardProps {
   profile: UserProfile;
@@ -117,7 +118,7 @@ function formatDate(dateString: string, language?: string): string {
       const year = date.getFullYear();
       return `${day}/${month}/${year}`;
     }
-  } catch (e) {
+  } catch (_) {
     return dateString;
   }
 }
@@ -160,9 +161,11 @@ export default function ProfileCard({ profile, onDelete }: ProfileCardProps) {
           {profile.avatar ? (
             <div className="relative">
               <div className="absolute inset-0 bg-editor-accent blur-md opacity-20 rounded-full"></div>
-              <img
+              <Image
                 src={profile.avatar}
                 alt={`${profile.firstName} ${profile.lastName}`}
+                width={64}
+                height={64}
                 className="relative w-16 h-16 rounded-full border-2 border-editor-accent/30 shadow-glow-sm object-cover"
               />
             </div>
