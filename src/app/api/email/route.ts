@@ -127,7 +127,7 @@ async function getAvailableDomains(): Promise<string[]> {
           await wait(backoffTime);
         }
         
-        let response = await axios.get('https://api.mail.tm/domains', {
+        const response = await axios.get('https://api.mail.tm/domains', {
           headers: getCommonHeaders(),
           timeout: API_TIMEOUT
         });
