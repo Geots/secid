@@ -2,24 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { AxiosError } from 'axios';
 
-// Simple rate limiting - one request per 250ms (4 per second)
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 250; // milliseconds
-
 // Helper function to wait
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper function to ensure minimum time between requests
+// Updated rate limiting for serverless environment
 async function ensureRateLimit() {
-  const now = Date.now();
-  const timeElapsed = now - lastRequestTime;
-  
-  if (timeElapsed < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeElapsed;
-    await wait(waitTime);
-  }
-  
-  lastRequestTime = Date.now();
+  // Add a small delay to prevent rate limiting
+  await wait(300);
 }
 
 // Define types for messages from the API
@@ -52,7 +41,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Apply rate limiting
+    // Add delay before fetching messages
     await ensureRateLimit();
     
     // Fetch messages from Mail.tm API with retry logic
@@ -129,7 +118,8 @@ export async function GET(request: NextRequest) {
       success: true,
       messages
     });
-  } catch {
+  } catch (error: unknown) {
+    console.error('Error fetching messages:', error);
     return NextResponse.json({
       success: true,
       messages: []

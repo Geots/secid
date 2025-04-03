@@ -2,24 +2,15 @@ import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { AxiosError } from 'axios';
 
-// Simple rate limiting - one request per 250ms (4 per second)
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 250; // milliseconds
-
 // Helper function to wait
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper function to ensure minimum time between requests
+// Updated rate limiting for serverless environment
+// Instead of using shared state which doesn't persist between serverless invocations,
+// we'll add small delays between API calls within the same execution
 async function ensureRateLimit() {
-  const now = Date.now();
-  const timeElapsed = now - lastRequestTime;
-  
-  if (timeElapsed < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeElapsed;
-    await wait(waitTime);
-  }
-  
-  lastRequestTime = Date.now();
+  // Add a small delay to prevent rate limiting
+  await wait(300);
 }
 
 interface Domain {
@@ -29,9 +20,6 @@ interface Domain {
 
 export async function GET() {
   try {
-    // Apply rate limiting
-    await ensureRateLimit();
-
     // Step 1: Get available domains from Mail.tm
     const domainsResponse = await axios.get('https://api.mail.tm/domains');
     
@@ -61,7 +49,7 @@ export async function GET() {
     
     // Step 3: Create an email account with Mail.tm
     
-    // Apply rate limiting again before account creation
+    // Add delay before account creation
     await ensureRateLimit();
     
     const createResponse = await axios.post('https://api.mail.tm/accounts', {
@@ -85,7 +73,7 @@ export async function GET() {
     
     // Step 4: Get authentication token
     
-    // Apply rate limiting before token request
+    // Add delay before token request
     await ensureRateLimit();
     
     const tokenResponse = await axios.post('https://api.mail.tm/token', {
@@ -119,10 +107,13 @@ export async function GET() {
       }
     });
   } catch (error: unknown) {
-    // Return error response
+    // Return error response with more detailed error information
     const errorMessage = error instanceof AxiosError 
       ? error.response?.data?.message || error.message
       : error instanceof Error ? error.message : 'Unknown error';
+    
+    console.error('Email generation error:', errorMessage);
+    console.error('Full error:', error);
       
     return NextResponse.json(
       { 

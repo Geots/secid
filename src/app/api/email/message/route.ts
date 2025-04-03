@@ -2,24 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { AxiosError } from 'axios';
 
-// Simple rate limiting - one request per 250ms (4 per second, well under the 8/sec limit)
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 250; // milliseconds
-
 // Helper function to wait
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper function to ensure minimum time between requests
+// Updated rate limiting for serverless environment
 async function ensureRateLimit() {
-  const now = Date.now();
-  const timeElapsed = now - lastRequestTime;
-  
-  if (timeElapsed < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeElapsed;
-    await wait(waitTime);
-  }
-  
-  lastRequestTime = Date.now();
+  // Add a small delay to prevent rate limiting
+  await wait(300);
 }
 
 export async function GET(request: NextRequest) {
@@ -95,8 +84,9 @@ export async function GET(request: NextRequest) {
             }
           }
         );
-      } catch {
+      } catch (error) {
         // Non-critical failure - log but continue
+        console.error('Failed to mark message as read:', error);
       }
     }
     
@@ -107,6 +97,7 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     // Create a sanitized error response
     const status = error instanceof AxiosError && error.response?.status ? error.response.status : 500;
+    console.error('Error fetching message:', error);
     
     return NextResponse.json(
       { 
@@ -162,7 +153,8 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: 'Message deleted successfully'
     });
-  } catch {
+  } catch (error) {
+    console.error('Error deleting message:', error);
     return NextResponse.json({
       success: true, 
       message: 'Message removed from inbox'
