@@ -5,8 +5,10 @@ import { AxiosError } from 'axios';
 // Safely import crypto - handle environments where it might not be available
 let cryptoModule: typeof import('crypto') | null = null;
 try {
-  cryptoModule = require('crypto');
-} catch (e) {
+  // Using dynamic import instead of require()
+  cryptoModule = { ...await import('crypto') };
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+} catch (_error) {
   console.warn('crypto module not available, using fallback for UUID generation');
   cryptoModule = null;
 }

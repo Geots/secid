@@ -1,6 +1,5 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   /* config options here */
   images: {
     remotePatterns: [
@@ -16,6 +15,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Using the new option name for external packages
+  serverExternalPackages: ['crypto']
 };
 
-export default nextConfig;
+export default nextConfig; 
