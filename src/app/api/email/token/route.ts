@@ -2,58 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { AxiosError } from 'axios';
 
-// Simple rate limiting - one request per 250ms (4 per second, well under the 8/sec limit)
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 250; // milliseconds
-
 // Helper function to wait
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper function to ensure minimum time between requests
-async function ensureRateLimit() {
-  const now = Date.now();
-  const timeElapsed = now - lastRequestTime;
-  
-  if (timeElapsed < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeElapsed;
-    await wait(waitTime);
+// Helper function for API retries with exponential backoff
+async function retryableRequest<T>(
+  requestFn: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  let retries = 0;
+  let lastError: Error | null = null;
+
+  while (retries < maxRetries) {
+    try {
+      return await requestFn();
+    } catch (error) {
+      if (error instanceof AxiosError && error.response && error.response.status === 429) {
+        // Rate limit hit - use exponential backoff with jitter
+        retries++;
+        const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
+        await wait(backoffTime);
+        continue;
+      }
+      
+      // For other errors, store and rethrow
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      throw lastError;
+    }
   }
-  
-  lastRequestTime = Date.now();
+
+  // This should never happen because we either return or throw in the loop
+  throw lastError || new Error('Max retries reached');
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if body is empty
-    const contentType = request.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid content-type, expected application/json' },
-        { status: 400 }
-      );
-    }
-
-    // Get the raw body text to check if empty
-    const bodyText = await request.text();
-    if (!bodyText || bodyText.trim() === '') {
-      return NextResponse.json(
-        { success: false, error: 'Request body is empty' },
-        { status: 400 }
-      );
-    }
-
-    // Parse the body text as JSON
-    let body;
-    try {
-      body = JSON.parse(bodyText);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON in request body' },
-        { status: 400 }
-      );
-    }
-
-    const { address, password } = body;
+    // Parse request body for email credentials
+    const { address, password } = await request.json();
     
     if (!address || !password) {
       return NextResponse.json(
@@ -61,45 +46,20 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Apply rate limiting
-    await ensureRateLimit();
     
-    // Get token from Mail.tm with retry logic
-    let response;
-    let retries = 0;
-    const maxRetries = 3;
-    
-    while (retries < maxRetries) {
-      try {
-        response = await axios.post('https://api.mail.tm/token', {
-          address,
-          password
-        }, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        });
-        break; // Success, exit the retry loop
-      } catch (error: unknown) {
-        if (error instanceof AxiosError && error.response && error.response.status === 429) {
-          retries++;
-          // Exponential backoff with jitter
-          const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
-          
-          if (retries < maxRetries) {
-            await wait(backoffTime);
-            continue;
-          }
+    // Get token from Mail.tm API with improved retry logic
+    const response = await retryableRequest(async () => {
+      return await axios.post('https://api.mail.tm/token', {
+        address,
+        password
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
         }
-        throw error; // Re-throw if not a 429 or if max retries reached
-      }
-    }
-    
-    if (!response) {
-      throw new Error('Failed to get token after retries');
-    }
+      });
+    });
     
     if (!response.data || !response.data.token) {
       throw new Error('Failed to get token from Mail.tm');
@@ -110,6 +70,9 @@ export async function POST(request: NextRequest) {
       token: response.data.token
     });
   } catch (error: unknown) {
+    // Log error for debugging in production
+    console.error('Token generation error:', error);
+    
     // Create a sanitized error response
     const errorMessage = 'Failed to get email token';
     const status = error instanceof AxiosError && error.response?.status ? error.response.status : 500;

@@ -74,7 +74,10 @@ npm run dev
 
 The tool uses the following APIs:
 - [Faker.js](https://fakerjs.dev/) for generating random data
-- [1SecMail API](https://www.1secmail.com/api/v1/) for temporary email management
+- [Mail.tm](https://mail.tm/) for temporary email services
+  - Our temporary email functionality is powered by the Mail.tm API
+  - Visit [Mail.tm](https://mail.tm/) for more information about their service
+  - [Mail.tm API Documentation](https://docs.mail.tm/)
 
 ## Contributing
 

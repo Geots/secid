@@ -2,24 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { AxiosError } from 'axios';
 
-// Simple rate limiting - one request per 250ms (4 per second, well under the 8/sec limit)
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 250; // milliseconds
-
 // Helper function to wait
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper function to ensure minimum time between requests
-async function ensureRateLimit() {
-  const now = Date.now();
-  const timeElapsed = now - lastRequestTime;
-  
-  if (timeElapsed < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeElapsed;
-    await wait(waitTime);
+// Helper function for API retries with exponential backoff
+async function retryableRequest<T>(
+  requestFn: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  let retries = 0;
+  let lastError: Error | null = null;
+
+  while (retries < maxRetries) {
+    try {
+      return await requestFn();
+    } catch (error) {
+      if (error instanceof AxiosError && error.response && error.response.status === 429) {
+        // Rate limit hit - use exponential backoff with jitter
+        retries++;
+        const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
+        await wait(backoffTime);
+        continue;
+      }
+      
+      // For other errors, store and rethrow
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      throw lastError;
+    }
   }
-  
-  lastRequestTime = Date.now();
+
+  // This should never happen because we either return or throw in the loop
+  throw lastError || new Error('Max retries reached');
 }
 
 export async function GET(request: NextRequest) {
@@ -36,136 +49,98 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await ensureRateLimit();
-    
-    // Fetch the specific email from Mail.tm API with retry logic
-    let response;
-    let retries = 0;
-    const maxRetries = 3;
-    
-    while (retries < maxRetries) {
-      try {
-        response = await axios.get(`https://api.mail.tm/messages/${messageId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          }
-        });
-        break; // Success, exit the retry loop
-      } catch (error: unknown) {
-        if (error instanceof AxiosError && error.response && error.response.status === 429) {
-          retries++;
-          // Exponential backoff with jitter
-          const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
-          await wait(backoffTime);
-          continue;
+    // Fetch the specific email from Mail.tm API with improved retry logic
+    const response = await retryableRequest(async () => {
+      return await axios.get(`https://api.mail.tm/messages/${messageId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
         }
-        throw error; // Re-throw if not a 429 or if max retries reached
-      }
-    }
-    
-    if (!response) {
-      throw new Error('Failed to get message after retries');
-    }
+      });
+    });
     
     // Transform Mail.tm format to our app format
     const msg = response.data;
+    
+    // Properly handle HTML content which can be an array or string
+    let htmlContent = '';
+    if (Array.isArray(msg.html)) {
+      htmlContent = msg.html.join('');
+    } else if (typeof msg.html === 'string') {
+      htmlContent = msg.html;
+    } else if (msg.text) {
+      htmlContent = `<p>${msg.text}</p>`;
+    }
+    
     const message = {
       id: msg.id,
       from: msg.from?.address || 'unknown@example.com',
       to: email,
       subject: msg.subject || '(No Subject)',
       text: msg.text || '',
-      html: msg.html || `<p>${msg.text || ''}</p>`,
+      html: htmlContent,
       date: new Date(msg.createdAt || new Date()).toISOString(),
       read: true
     };
-    
-    // Try to mark as read in Mail.tm (if not already read)
-    if (msg.seen === false) {
-      try {
-        await ensureRateLimit();
-        
-        await axios.patch(`https://api.mail.tm/messages/${messageId}`, 
-          { seen: true },
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/merge-patch+json'
-            }
-          }
-        );
-      } catch {
-        // Non-critical failure - log but continue
-      }
-    }
     
     return NextResponse.json({
       success: true,
       message
     });
-  } catch (error: unknown) {
-    // Create a sanitized error response
-    const status = error instanceof AxiosError && error.response?.status ? error.response.status : 500;
+  } catch (error) {
+    console.error('Error fetching message:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     return NextResponse.json(
       { 
         success: false, 
-        error: 'Failed to read message',
-        message: 'There was a problem retrieving this message'
+        error: 'Failed to retrieve email message',
+        details: errorMessage
       },
-      { status }
+      { status: 500 }
     );
   }
 }
 
+// Handle DELETE request to delete a message
 export async function DELETE(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const messageId = searchParams.get('id');
   const token = searchParams.get('token');
-  
-  if (!messageId || !token) {
+  const email = searchParams.get('email');
+
+  if (!messageId || !token || !email) {
     return NextResponse.json(
-      { success: false, error: 'Message ID and token are required' },
+      { success: false, error: 'Message ID, token and email are required' },
       { status: 400 }
     );
   }
 
   try {
-    await ensureRateLimit();
-    
-    // Delete the message from Mail.tm with retry logic
-    let retries = 0;
-    const maxRetries = 3;
-    
-    while (retries < maxRetries) {
-      try {
-        await axios.delete(`https://api.mail.tm/messages/${messageId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        break; // Success, exit the retry loop
-      } catch (error: unknown) {
-        if (error instanceof AxiosError && error.response && error.response.status === 429) {
-          retries++;
-          // Exponential backoff with jitter
-          const backoffTime = Math.min(1000 * (2 ** retries) + Math.random() * 1000, 10000);
-          await wait(backoffTime);
-          continue;
+    // Delete the message using Mail.tm API with retry logic
+    await retryableRequest(async () => {
+      return await axios.delete(`https://api.mail.tm/messages/${messageId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
         }
-        throw error; // Re-throw if not a 429 or if max retries reached
-      }
-    }
+      });
+    });
     
     return NextResponse.json({
-      success: true,
-      message: 'Message deleted successfully'
+      success: true
     });
-  } catch {
-    return NextResponse.json({
-      success: true, 
-      message: 'Message removed from inbox'
-    });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Failed to delete email message',
+        details: errorMessage
+      },
+      { status: 500 }
+    );
   }
 } 
