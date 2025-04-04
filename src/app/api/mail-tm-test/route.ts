@@ -12,12 +12,27 @@ type DomainsResponse = {
   'hydra:member'?: Domain[];
 } | Domain[];
 
+// Define types for API responses
+type TokenResponse = {
+  token: string;
+  id: string;
+};
+
+type AccountResponse = {
+  id: string;
+  address: string;
+  quota?: number;
+  used?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 // Define types for the error object
 type ErrorDetails = {
   message: string;
   response: {
     status: number;
-    data: any;
+    data: unknown;
   } | null;
 };
 
@@ -25,9 +40,9 @@ export async function GET() {
   const results: {
     domains: DomainsResponse | null;
     domainsError: ErrorDetails | null;
-    accountCreation: any | null;
+    accountCreation: AccountResponse | null;
     accountCreationError: ErrorDetails | null;
-    token: any | null;
+    token: TokenResponse | null;
     tokenError: ErrorDetails | null;
     environment: {
       nodeVersion: string;
@@ -60,10 +75,11 @@ export async function GET() {
       timeout: 10000
     });
     results.domains = domainsResponse.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     results.domainsError = {
-      message: error.message,
-      response: error.response ? {
+      message: err.message,
+      response: axios.isAxiosError(error) && error.response ? {
         status: error.response.status,
         data: error.response.data
       } : null
@@ -96,7 +112,7 @@ export async function GET() {
           timeout: 10000
         });
         
-        results.accountCreation = createResponse.data;
+        results.accountCreation = createResponse.data as AccountResponse;
         
         // Test 3: Can we get a token?
         try {
@@ -111,21 +127,23 @@ export async function GET() {
             timeout: 10000
           });
           
-          results.token = tokenResponse.data;
-        } catch (error: any) {
+          results.token = tokenResponse.data as TokenResponse;
+        } catch (error: unknown) {
+          const err = error as Error;
           results.tokenError = {
-            message: error.message,
-            response: error.response ? {
+            message: err.message,
+            response: axios.isAxiosError(error) && error.response ? {
               status: error.response.status,
               data: error.response.data
             } : null
           };
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as Error;
       results.accountCreationError = {
-        message: error.message,
-        response: error.response ? {
+        message: err.message,
+        response: axios.isAxiosError(error) && error.response ? {
           status: error.response.status,
           data: error.response.data
         } : null

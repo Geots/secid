@@ -8,10 +8,18 @@ interface EmailGeneratorProps {
   onEmailGenerated: (inbox: EmailInbox) => void;
 }
 
+// Define a type for the error object
+type ErrorDetails = {
+  message?: string;
+  stack?: string;
+  axiosError?: unknown;
+  env?: Record<string, string | undefined>;
+} | string;
+
 export default function EmailGenerator({ onEmailGenerated }: EmailGeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [emailAccount, setEmailAccount] = useState<EmailAccount | null>(null);
-  const [error, setError] = useState<any>(null);
+  const [error, setError] = useState<ErrorDetails | null>(null);
 
   const handleGenerateEmail = useCallback(async () => {
     setIsGenerating(true);
@@ -26,9 +34,17 @@ export default function EmailGenerator({ onEmailGenerated }: EmailGeneratorProps
       onEmailGenerated(inbox);
       
       toast.success('Email address generated!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Email generation error:', err);
-      setError(err?.response?.data?.details || err?.message || 'Unknown error');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else if (typeof err === 'object' && err !== null) {
+        // Handle Axios error object with response data
+        const errorObj = err as { response?: { data?: { details?: unknown } } };
+        setError(errorObj?.response?.data?.details || 'Unknown error');
+      } else {
+        setError('Unknown error occurred');
+      }
       toast.error('Failed to generate email address');
     } finally {
       setIsGenerating(false);
