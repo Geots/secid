@@ -209,16 +209,36 @@ export async function GET() {
       console.error('- Headers:', JSON.stringify(error.response.headers));
     }
     
+    // Return very detailed error response for debugging
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      axiosError: error instanceof AxiosError ? {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          baseURL: error.config?.baseURL,
+          timeout: error.config?.timeout
+        }
+      } : undefined,
+      env: {
+        emailProvider: process.env.NEXT_PUBLIC_EMAIL_PROVIDER,
+        nodeEnv: process.env.NODE_ENV,
+        runtimeEnv: typeof window === 'undefined' ? 'server' : 'client'
+      }
+    };
+    
     // Return detailed error response for debugging
-    const errorMessage = error instanceof AxiosError 
-      ? `${error.response?.status || 'Unknown'} - ${error.response?.data?.message || error.message}`
-      : error instanceof Error ? error.message : 'Unknown error';
-      
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to generate email address',
-        details: errorMessage 
+        details: errorDetails
       },
       { status: 500 }
     );

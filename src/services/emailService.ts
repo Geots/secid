@@ -45,9 +45,15 @@ class EmailService {
         return account;
       }
       
+      console.error('API returned failure:', response.data);
       throw new Error(response.data.error || 'Failed to create email account');
-    } catch {
-      throw new Error('Failed to create email account');
+    } catch (error) {
+      console.error('Email generation failed:', error);
+      // Rethrow the error with response details if available
+      if (error instanceof AxiosError && error.response) {
+        throw new Error(`Email generation failed: ${JSON.stringify(error.response.data)}`);
+      }
+      throw error;
     }
   }
 

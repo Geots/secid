@@ -11,9 +11,11 @@ interface EmailGeneratorProps {
 export default function EmailGenerator({ onEmailGenerated }: EmailGeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [emailAccount, setEmailAccount] = useState<EmailAccount | null>(null);
+  const [error, setError] = useState<any>(null);
 
   const handleGenerateEmail = useCallback(async () => {
     setIsGenerating(true);
+    setError(null);
     try {
       // Generate email account
       const account = await emailService.generateEmail();
@@ -24,7 +26,9 @@ export default function EmailGenerator({ onEmailGenerated }: EmailGeneratorProps
       onEmailGenerated(inbox);
       
       toast.success('Email address generated!');
-    } catch {
+    } catch (err: any) {
+      console.error('Email generation error:', err);
+      setError(err?.response?.data?.details || err?.message || 'Unknown error');
       toast.error('Failed to generate email address');
     } finally {
       setIsGenerating(false);
@@ -103,6 +107,13 @@ export default function EmailGenerator({ onEmailGenerated }: EmailGeneratorProps
             <FaSync className={`mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
             Generate Email Address
           </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-mono overflow-auto max-h-64">
+          <div className="font-bold mb-2">Error Details:</div>
+          <pre>{JSON.stringify(error, null, 2)}</pre>
         </div>
       )}
     </div>
